@@ -1,0 +1,6 @@
+{
+  "name": "SIMANTU BI Dashboard",
+  "description": "Dashboard Business Intelligence modern, minimalis, dan profesional menggunakan gaya Google Looker Studio untuk sistem pemantauan perubahan status sosial (SIMANTU).",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
