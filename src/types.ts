@@ -38,6 +38,7 @@ export interface UserAccount {
   avatarColor: string;
   avatarUrl?: string;
   totalInputs: number;
+  password?: string;
 }
 
 export interface ApiSyncLog {

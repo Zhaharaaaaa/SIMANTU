@@ -138,11 +138,11 @@ export default function OfficerDashboardView({
             <p className="text-xs text-gray-400 font-medium mt-0.5">Penilaian rekap produktivitas harian pencatatan sosial.</p>
           </div>
 
-          <div className="w-full min-w-0 mt-6 h-[220px]">
+          <div className="w-full min-w-0 mt-6 h-[350px] relative">
             {!isRendered ? (
               <div className="w-full h-full bg-slate-50 animate-pulse rounded-xl" />
             ) : (
-              <ResponsiveContainer width="100%" height={220}>
+              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                 <AreaChart data={myTrendData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
                   <defs>
                     <linearGradient id="colorKontribusi" x1="0" y1="0" x2="0" y2="1">

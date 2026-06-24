@@ -205,11 +205,11 @@ export default function AdminDashboard({
               Grafik analisis frekuensi laporan masuk harian dibandingkan berkas approved.
             </p>
           </div>
-          <div className="w-full h-64 mt-4 min-w-0">
+          <div className="w-full h-[350px] mt-4 min-w-0 relative">
             {!isRendered ? (
               <div className="w-full h-full bg-slate-50 animate-pulse rounded-xl" />
             ) : (
-              <ResponsiveContainer width="100%" height={256}>
+              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                 <LineChart data={trendData} margin={{ top: 10, right: 30, left: -20, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                   <XAxis dataKey="date" stroke="#94a3b8" fontSize={10} fontFamily="JetBrains Mono" />
@@ -257,11 +257,11 @@ export default function AdminDashboard({
               Bauran jenis laporan perubahan kependudukan.
             </p>
           </div>
-          <div className="w-full h-56 mt-4 min-w-0 relative flex items-center justify-center">
+          <div className="w-full h-[350px] mt-4 min-w-0 relative flex items-center justify-center">
             {!isRendered ? (
               <div className="w-full h-full bg-slate-50 animate-pulse rounded-xl" />
             ) : (
-              <ResponsiveContainer width="100%" height={224}>
+              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                 <PieChart>
                   <Pie
                     data={categoryData}
@@ -312,11 +312,11 @@ export default function AdminDashboard({
               Grafik komparasi frekuensi laporan perubahan sosial antar-kecamatan dari paling dinamis.
             </p>
           </div>
-          <div className="w-full h-44 mt-4 min-w-0">
+          <div className="w-full h-[350px] mt-4 min-w-0 relative">
             {!isRendered ? (
               <div className="w-full h-full bg-slate-50 animate-pulse rounded-xl" />
             ) : (
-              <ResponsiveContainer width="100%" height={176}>
+              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                 <RechartsBarChart
                   layout="vertical"
                   data={regionData}

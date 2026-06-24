@@ -7,7 +7,7 @@ import React, { useState } from "react";
 import { UserAccount } from "../types";
 import { 
   Settings, Key, ShieldAlert, Cpu, Heart, Database, Save, UserPlus, Trash, Check, 
-  Edit2, Trash2, X, AlertTriangle
+  Edit2, Trash2, X, AlertTriangle, Eye, EyeOff, Lock
 } from "lucide-react";
 
 interface AdminSettingsViewProps {
@@ -30,8 +30,16 @@ export default function AdminSettingsView({
   const [newEmail, setNewEmail] = useState("");
   const [newRole, setNewRole] = useState<"Admin" | "Petugas Lapangan">("Petugas Lapangan");
   const [newRegion, setNewRegion] = useState("Kecamatan Sukamaju");
+  const [newPassword, setNewPassword] = useState("");
+  const [showNewPassword, setShowNewPassword] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // States for resetting user passwords
+  const [resetPasswordUser, setResetPasswordUser] = useState<UserAccount | null>(null);
+  const [resetPassword, setResetPassword] = useState("");
+  const [showResetPassword, setShowResetPassword] = useState(false);
+  const [resetPasswordError, setResetPasswordError] = useState<string | null>(null);
 
   // States for Editing existing user accounts (CRUD)
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
@@ -55,7 +63,12 @@ export default function AdminSettingsView({
   const handleAddNewUser = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newName || !newEmail) {
-      setSuccessMsg("Peringatan: Mohon isi Nama Lengkap dan Email dengan benar.");
+      setErrorMsg("Peringatan: Mohon isi Nama Lengkap dan Email dengan benar.");
+      return;
+    }
+
+    if (!newPassword || newPassword.length < 8) {
+      setErrorMsg("Galat: Kata sandi minimal harus 8 karakter demi keamanan kearsipan.");
       return;
     }
 
@@ -74,12 +87,16 @@ export default function AdminSettingsView({
       role: newRole,
       email: newEmail,
       region: newRole === "Admin" ? "Pusat Kabupaten" : newRegion,
-      avatarColor: pickedColor
+      avatarColor: pickedColor,
+      password: newPassword
     });
 
     setSuccessMsg(`Sukses menambahkan akun ${newName} sebagai ${newRole}!`);
+    setErrorMsg(null);
     setNewName("");
     setNewEmail("");
+    setNewPassword("");
+    setShowNewPassword(false);
 
     setTimeout(() => {
       setSuccessMsg(null);
@@ -356,77 +373,99 @@ export default function AdminSettingsView({
         </div>
 
         {/* Input Form to add user */}
-        <form onSubmit={handleAddNewUser} className="p-5 bg-gray-50/50 border-b border-gray-100 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end">
+        <form onSubmit={handleAddNewUser} className="p-6 bg-gray-50/50 border-b border-gray-100 grid grid-cols-1 md:grid-cols-2 gap-4">
           
-          <div>
-            <label className="text-[9px] font-bold text-gray-400 uppercase block mb-1">Nama Operator Baru</label>
+          <div className="flex flex-col">
+            <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-wider block mb-1">Nama Operator Baru</label>
             <input
               type="text"
               placeholder="Contoh: Rian Hidayat"
               required
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
-              className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs font-semibold text-gray-700 focus:outline-none focus:ring-1 focus:ring-[#535CE8]"
+              className="w-full bg-white border border-gray-200 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#535CE8]/20 focus:border-[#535CE8]"
             />
           </div>
 
-          <div>
-            <label className="text-[9px] font-bold text-gray-400 uppercase block mb-1">Alamat Email (.go.id)</label>
+          <div className="flex flex-col">
+            <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-wider block mb-1">Alamat Email (.go.id)</label>
             <input
               type="email"
               placeholder="rian.hidayat@simantu.id"
               required
               value={newEmail}
               onChange={(e) => setNewEmail(e.target.value)}
-              className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs font-semibold text-gray-700 focus:outline-none focus:ring-1 focus:ring-[#535CE8]"
+              className="w-full bg-white border border-gray-200 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#535CE8]/20 focus:border-[#535CE8]"
             />
           </div>
 
-          <div>
-            <label className="text-[9px] font-bold text-gray-400 uppercase block mb-1">Hak Akses Sistem</label>
+          <div className="flex flex-col">
+            <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-wider block mb-1">Hak Akses Sistem</label>
             <select
               value={newRole}
               onChange={(e) => setNewRole(e.target.value as "Admin" | "Petugas Lapangan")}
-              className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs font-semibold text-gray-700 focus:outline-none"
+              className="w-full bg-white border border-gray-200 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-gray-750 focus:outline-none focus:ring-2 focus:ring-[#535CE8]/20 focus:border-[#535CE8]"
             >
               <option value="Petugas Lapangan">Petugas Lapangan</option>
               <option value="Admin">Administrator</option>
             </select>
           </div>
 
-          {newRole === "Petugas Lapangan" ? (
-            <div>
-              <label className="text-[9px] font-bold text-gray-400 uppercase block mb-1">Rayon Penugasan Kerja</label>
+          <div className="flex flex-col">
+            <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-wider block mb-1">Rayon Penugasan Kerja</label>
+            {newRole === "Petugas Lapangan" ? (
               <select
                 value={newRegion}
                 onChange={(e) => setNewRegion(e.target.value)}
-                className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs font-semibold text-gray-700 focus:outline-none"
+                className="w-full bg-white border border-gray-200 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-gray-750 focus:outline-none focus:ring-2 focus:ring-[#535CE8]/20 focus:border-[#535CE8]"
               >
                 <option value="Kecamatan Sukamaju">Kecamatan Sukamaju</option>
                 <option value="Kecamatan Sukaresmi">Kecamatan Sukaresmi</option>
                 <option value="Kecamatan Jatisari">Kecamatan Jatisari</option>
                 <option value="Kecamatan Mekarsari">Kecamatan Mekarsari</option>
               </select>
-            </div>
-          ) : (
-            <div>
-              <label className="text-[9px] font-bold text-gray-400 uppercase block mb-1">Rayon Penugasan Kerja</label>
+            ) : (
               <input
                 type="text"
                 readOnly
                 value="Pusat Kabupaten"
-                className="w-full bg-gray-100 border border-gray-200 rounded-xl px-3 py-2 text-xs font-semibold text-gray-500 focus:outline-none"
+                className="w-full bg-gray-100 border border-gray-200 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-gray-500 focus:outline-none"
               />
-            </div>
-          )}
+            )}
+          </div>
 
-          <div>
+          <div className="flex flex-col relative md:col-span-2">
+            <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-wider block mb-1">Kata Sandi Baru</label>
+            <div className="relative">
+              <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-gray-400">
+                <Lock className="w-4 h-4" />
+              </span>
+              <input
+                type={showNewPassword ? "text" : "password"}
+                placeholder="Minimal 8 karakter kuncian"
+                required
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                className="w-full bg-white border border-gray-200 rounded-xl pl-10 pr-10 py-2.5 text-xs font-semibold text-gray-750 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#535CE8]/20 focus:border-[#535CE8]"
+              />
+              <button
+                type="button"
+                onClick={() => setShowNewPassword(!showNewPassword)}
+                className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-gray-400 hover:text-[#535CE8]"
+              >
+                {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+            <p className="text-[9px] text-gray-400 mt-1 font-mono">Disimpan dengan enkripsi kearsipan lokal.</p>
+          </div>
+
+          <div className="md:col-span-2 flex justify-end pt-2">
             <button
               type="submit"
-              className="w-full bg-[#535CE8] hover:bg-[#434AC7] text-white text-xs font-bold py-2.5 px-4 rounded-xl transition-all shadow-md shadow-[#535CE8]/10 flex items-center justify-center gap-1.5 cursor-pointer"
+              className="w-full md:w-auto min-w-[180px] bg-[#535CE8] hover:bg-[#434AC7] text-white text-xs font-extrabold py-3 px-6 rounded-xl transition-all shadow-md shadow-[#535CE8]/20 flex items-center justify-center gap-2 cursor-pointer hover:-translate-y-0.5 active:translate-y-0"
             >
               <UserPlus className="w-4 h-4" />
-              <span>Tambahkan</span>
+              <span>Tambahkan Operator Baru</span>
             </button>
           </div>
 
@@ -572,6 +611,21 @@ export default function AdminSettingsView({
                             <Edit2 className="w-3.5 h-3.5" />
                             <span>Edit</span>
                           </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setResetPasswordUser(user);
+                              setResetPassword("");
+                              setResetPasswordError(null);
+                            }}
+                            className="p-1.5 px-2.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-600 border border-amber-200 transition-all flex items-center gap-1 cursor-pointer"
+                            title="Reset Kata Sandi"
+                          >
+                            <Key className="w-3.5 h-3.5" />
+                            <span>Reset Sandi</span>
+                          </button>
+
                           <button
                             type="button"
                             disabled={user.id === currentAccountId}
@@ -628,7 +682,101 @@ export default function AdminSettingsView({
               <button
                 type="button"
                 onClick={() => setConfirmDeleteUser(null)}
-                className="flex-1 bg-gray-50 hover:bg-gray-100 text-gray-600 text-xs font-bold py-2.5 px-4 rounded-xl border border-gray-250 cursor-pointer"
+                className="flex-1 bg-gray-50 hover:bg-gray-100 text-gray-600 text-xs font-bold py-2.5 px-4 rounded-xl border border-gray-250 cursor-pointer text-center"
+              >
+                Batalkan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Custom Reset Password Modal */}
+      {resetPasswordUser && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" id="reset-password-modal">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-2xl max-w-sm w-full overflow-hidden p-6 space-y-4 animate-fadeIn animate-duration-200">
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-amber-50 rounded-xl text-amber-600 border border-amber-100">
+                <Key className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="font-extrabold text-sm text-gray-900 uppercase">Reset Kata Sandi</h3>
+                <p className="text-[10px] text-gray-400 font-medium">Bantu pemulihan akun petugas di sistem lokal</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-gray-650 leading-relaxed">
+              Masukkan kata sandi baru untuk pengguna <strong className="text-gray-950 font-bold">{resetPasswordUser.name}</strong> ({resetPasswordUser.email}).
+            </p>
+
+            {resetPasswordError && (
+              <div className="bg-rose-55 border border-rose-200 text-rose-800 text-xs font-semibold px-3 py-2 rounded-xl animate-fadeIn">
+                {resetPasswordError}
+              </div>
+            )}
+
+            <div className="space-y-1">
+              <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest block font-sans">
+                Kata Sandi Baru
+              </label>
+              <div className="relative">
+                <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400">
+                  <Lock className="w-4 h-4" />
+                </span>
+                <input
+                  type={showResetPassword ? "text" : "password"}
+                  placeholder="Min. 8 karakter kuncian"
+                  value={resetPassword}
+                  onChange={(e) => setResetPassword(e.target.value)}
+                  className="w-full bg-white border border-gray-200 rounded-xl pl-9 pr-9 py-2 text-xs font-semibold text-gray-700 placeholder-gray-405 focus:outline-none focus:ring-2 focus:ring-[#535CE8]/20 focus:border-[#535CE8]"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowResetPassword(!showResetPassword)}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-[#535CE8]"
+                >
+                  {showResetPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  if (!resetPassword || resetPassword.length < 8) {
+                    setResetPasswordError("Peringatan: Kata sandi minimal harus 8 karakter demi keamanan.");
+                    return;
+                  }
+                  
+                  // Perform password update
+                  onUpdateAccount({
+                    ...resetPasswordUser,
+                    password: resetPassword
+                  });
+                  
+                  setSuccessMsg(`Berhasil mereset kata sandi baru untuk akun ${resetPasswordUser.name}.`);
+                  setResetPasswordUser(null);
+                  setResetPassword("");
+                  setShowResetPassword(false);
+                  setResetPasswordError(null);
+                  setTimeout(() => {
+                    setSuccessMsg(null);
+                  }, 4000);
+                }}
+                className="flex-1 bg-[#535CE8] hover:bg-[#434AC7] text-white text-xs font-bold py-2.5 px-4 rounded-xl transition-all shadow-md shadow-[#535CE8]/10 cursor-pointer text-center"
+              >
+                Simpan Sandi
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setResetPasswordUser(null);
+                  setResetPassword("");
+                  setShowResetPassword(false);
+                  setResetPasswordError(null);
+                }}
+                className="flex-1 bg-gray-50 hover:bg-gray-100 text-gray-600 text-xs font-bold py-2.5 px-4 rounded-xl border border-gray-250 cursor-pointer text-center text-nowrap"
               >
                 Batalkan
               </button>

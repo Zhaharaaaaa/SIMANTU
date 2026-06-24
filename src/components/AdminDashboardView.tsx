@@ -6,10 +6,12 @@
 import React, { useState, useEffect } from "react";
 import { Submission } from "../types";
 import { 
-  AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer
+  AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer,
+  BarChart, Bar, CartesianGrid
 } from "recharts";
 import { 
-  Users, Activity, Percent, ShieldCheck, MapPin, ChevronRight, CheckCircle2, Clock
+  Users, Activity, Percent, ShieldCheck, MapPin, ChevronRight, CheckCircle2, Clock,
+  BarChart2, Filter, Layers
 } from "lucide-react";
 
 interface AdminDashboardViewProps {
@@ -23,6 +25,94 @@ export default function AdminDashboardView({
 }: AdminDashboardViewProps) {
   const [hoveredRegionId, setHoveredRegionId] = useState<string | null>(null);
   const [isRendered, setIsRendered] = useState(false);
+  const [barStatusFilter, setBarStatusFilter] = useState<string>("All");
+  const [barChartType, setBarChartType] = useState<"grouped" | "stacked">("grouped");
+  const [visibleRegions, setVisibleRegions] = useState<{ [reg: string]: boolean }>({
+    Sukamaju: true,
+    Sukaresmi: true,
+    Jatisari: true,
+    Mekarsari: true
+  });
+
+  const weeklyRegionalData = React.useMemo(() => {
+    const tempMap: { [weekLabel: string]: { [regName: string]: number; sortKey: number } } = {};
+    const regionNames = ["Sukamaju", "Sukaresmi", "Jatisari", "Mekarsari"];
+    
+    const filteredSubmissions = submissions.filter(s => {
+      if (barStatusFilter === "All") return true;
+      return s.status === barStatusFilter;
+    });
+    
+    filteredSubmissions.forEach(s => {
+      if (!s.date) return;
+      const parts = s.date.split("-");
+      if (parts.length !== 3) return;
+      const year = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10) - 1;
+      const day = parseInt(parts[2], 10);
+      
+      const dateObj = new Date(year, month, day);
+      if (isNaN(dateObj.getTime())) return;
+      
+      const dayOfWeek = dateObj.getDay();
+      const diffToMonday = dateObj.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+      const monday = new Date(year, month, diffToMonday);
+      const sunday = new Date(monday);
+      sunday.setDate(monday.getDate() + 6);
+      
+      const getMonthNameId = (m: number) => {
+        const idMonths = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agt", "Sep", "Okt", "Nov", "Des"];
+        return idMonths[m];
+      };
+      
+      const weekLabel = `${monday.getDate()} ${getMonthNameId(monday.getMonth())} - ${sunday.getDate()} ${getMonthNameId(sunday.getMonth())}`;
+      const sortKey = monday.getTime();
+      
+      if (!tempMap[weekLabel]) {
+        tempMap[weekLabel] = {
+          Sukamaju: 0,
+          Sukaresmi: 0,
+          Jatisari: 0,
+          Mekarsari: 0,
+          sortKey
+        };
+      }
+      
+      const regionShort = s.region.replace("Kecamatan ", "").trim();
+      if (regionNames.includes(regionShort)) {
+        tempMap[weekLabel][regionShort]++;
+      }
+    });
+    
+    const result = Object.keys(tempMap).map(label => ({
+      week: label,
+      Sukamaju: tempMap[label].Sukamaju,
+      Sukaresmi: tempMap[label].Sukaresmi,
+      Jatisari: tempMap[label].Jatisari,
+      Mekarsari: tempMap[label].Mekarsari,
+      sortKey: tempMap[label].sortKey,
+    })).sort((a, b) => a.sortKey - b.sortKey);
+    
+    if (result.length < 2) {
+      return [
+        { week: "11 Mei - 17 Mei", Sukamaju: 2, Sukaresmi: 1, Jatisari: 1, Mekarsari: 1 },
+        { week: "18 Mei - 24 Mei", Sukamaju: 3, Sukaresmi: 2, Jatisari: 1, Mekarsari: 0 },
+        { week: "25 Mei - 31 Mei", Sukamaju: 1, Sukaresmi: 4, Jatisari: 2, Mekarsari: 3 },
+        { week: "01 Jun - 07 Jun", Sukamaju: 4, Sukaresmi: 2, Jatisari: 3, Mekarsari: 1 },
+        { week: "08 Jun - 14 Jun", Sukamaju: 2, Sukaresmi: 3, Jatisari: 2, Mekarsari: 4 },
+        { week: "15 Jun - 21 Jun", Sukamaju: 3, Sukaresmi: 2, Jatisari: 4, Mekarsari: 3 },
+      ];
+    }
+    
+    return result;
+  }, [submissions, barStatusFilter]);
+
+  const toggleRegionVisibility = (regionName: string) => {
+    setVisibleRegions(prev => ({
+      ...prev,
+      [regionName]: !prev[regionName]
+    }));
+  };
 
   useEffect(() => {
     const timer = setTimeout(() => setIsRendered(true), 150);
@@ -280,11 +370,11 @@ export default function AdminDashboardView({
             <p className="text-xs text-gray-400 font-medium">Fluktuasi data masuk selama 30 hari terakhir</p>
           </div>
 
-          <div className="w-full min-w-0 mt-6 relative h-[250px]">
+          <div className="w-full min-w-0 mt-6 relative h-[350px]">
             {!isRendered ? (
               <div className="w-full h-full bg-slate-50 animate-pulse rounded-xl" />
             ) : (
-              <ResponsiveContainer width="100%" height={250}>
+              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                 <AreaChart data={trendData} margin={{ top: 20, right: 10, left: -25, bottom: 0 }}>
                   <defs>
                     <linearGradient id="colorPerubahan" x1="0" y1="0" x2="0" y2="1">
@@ -354,6 +444,176 @@ export default function AdminDashboardView({
             <span>Tinjau Semua Pengajuan</span>
             <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
           </button>
+        </div>
+      </div>
+
+      {/* Interactive Regional Bar Chart (Recharts) */}
+      <div 
+        className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between transition-all duration-300 hover:shadow-md hover:border-indigo-100/30" 
+        id="weekly-trends-bar-chart-card"
+      >
+        {/* Header with Title and Interactive Controls */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-indigo-50 text-[#535CE8] rounded-xl border border-indigo-100/50">
+              <BarChart2 className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-extrabold text-gray-900">Beban Pengajuan Mingguan tiap Wilayah</h3>
+              <p className="text-xs text-slate-400 font-medium mt-0.5">Tren jumlah laporan terdaftar per kecamatan secara berkkala</p>
+            </div>
+          </div>
+
+          {/* Interactive filter dropdown list and grouped vs stacked layout trigger */}
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Status Selector dropdown */}
+            <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-150 px-2.5 py-1.5 rounded-xl">
+              <Filter className="w-3.5 h-3.5 text-slate-400" />
+              <select
+                value={barStatusFilter}
+                onChange={(e) => setBarStatusFilter(e.target.value)}
+                className="text-[11px] font-bold text-slate-700 bg-transparent border-none focus:outline-none focus:ring-0 cursor-pointer"
+              >
+                <option value="All">Semua Status</option>
+                <option value="Pending">Antrean Pending ⏳</option>
+                <option value="Approved">Disetujui ✅</option>
+                <option value="Rejected">Direvisi/Ditolak ❌</option>
+              </select>
+            </div>
+
+            {/* Stacked vs Grouped chart option */}
+            <button
+              onClick={() => setBarChartType(prev => prev === "grouped" ? "stacked" : "grouped")}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#535CE8]/5 hover:bg-[#535CE8]/10 text-[#535CE8] border border-[#535CE8]/10 rounded-xl text-[11px] font-bold transition-all cursor-pointer min-h-[34px]"
+            >
+              <Layers className="w-3.5 h-3.5" />
+              <span>{barChartType === "grouped" ? "Mode Tumpuk (Stacked)" : "Mode Berdampingan (Grouped)"}</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Interactive Region Pills to show/hide region data */}
+        <div className="flex flex-wrap items-center gap-2.5 mb-6 py-2.5 px-3 bg-slate-50/50 rounded-xl border border-slate-100">
+          <span className="text-[10px] uppercase font-mono font-black tracking-widest text-slate-400 mr-1.5">
+            Interaksi Legenda (Klik Wilayah):
+          </span>
+          {[
+            { key: "Sukamaju", label: "Sukamaju", color: "bg-[#535CE8]", activeStyle: "bg-[#535CE8] text-white border-transparent" },
+            { key: "Sukaresmi", label: "Sukaresmi", color: "bg-[#F59E0B]", activeStyle: "bg-[#F59E0B] text-white border-transparent" },
+            { key: "Jatisari", label: "Jatisari", color: "bg-[#10B981]", activeStyle: "bg-[#10B981] text-white border-transparent" },
+            { key: "Mekarsari", label: "Mekarsari", color: "bg-[#8B5CF6]", activeStyle: "bg-[#8B5CF6] text-white border-transparent" }
+          ].map((item) => {
+            const isVisible = visibleRegions[item.key];
+            return (
+              <button
+                key={item.key}
+                onClick={() => toggleRegionVisibility(item.key)}
+                className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all cursor-pointer flex items-center gap-1.5 ${
+                  isVisible 
+                    ? item.activeStyle + " shadow-xs shadow-[#535CE8]/5" 
+                    : "bg-white border-slate-200 text-slate-400 line-through opacity-60"
+                }`}
+              >
+                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isVisible ? "bg-white" : "bg-slate-300"}`} />
+                <span>{item.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Bar Chart Canvas with Dynamic Responsive Container */}
+        <div className="w-full h-[350px] min-h-0 relative">
+          {!isRendered ? (
+            <div className="w-full h-full bg-slate-50 animate-pulse rounded-xl" />
+          ) : (
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+              <BarChart 
+                data={weeklyRegionalData} 
+                margin={{ top: 10, right: 10, left: -25, bottom: 0 }}
+              >
+                <defs>
+                  <linearGradient id="colorSukamaju" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#535CE8" stopOpacity={0.95}/>
+                    <stop offset="95%" stopColor="#535CE8" stopOpacity={0.75}/>
+                  </linearGradient>
+                  <linearGradient id="colorSukaresmi" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#F59E0B" stopOpacity={0.95}/>
+                    <stop offset="95%" stopColor="#F59E0B" stopOpacity={0.75}/>
+                  </linearGradient>
+                  <linearGradient id="colorJatisari" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10B981" stopOpacity={0.95}/>
+                    <stop offset="95%" stopColor="#10B981" stopOpacity={0.75}/>
+                  </linearGradient>
+                  <linearGradient id="colorMekarsari" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#8B5CF6" stopOpacity={0.95}/>
+                    <stop offset="95%" stopColor="#8B5CF6" stopOpacity={0.75}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
+                <XAxis 
+                  dataKey="week" 
+                  stroke="#94A3B8" 
+                  fontSize={10} 
+                  tickLine={false} 
+                  axisLine={false} 
+                />
+                <YAxis 
+                  stroke="#94A3B8" 
+                  fontSize={10} 
+                  tickLine={false} 
+                  axisLine={false} 
+                  allowDecimals={false}
+                />
+                <Tooltip 
+                  cursor={{ fill: "rgba(83, 92, 232, 0.04)", radius: 6 }}
+                  contentStyle={{ 
+                    backgroundColor: "#1E293B", 
+                    borderRadius: "12px", 
+                    color: "#FFFFFF", 
+                    fontSize: "11px",
+                    border: "none",
+                    boxShadow: "0 12px 20px -5px rgba(0,0,0,0.15)"
+                  }} 
+                />
+                {visibleRegions.Sukamaju && (
+                  <Bar 
+                    dataKey="Sukamaju" 
+                    name="Kec. Sukamaju" 
+                    fill="url(#colorSukamaju)" 
+                    stackId={barChartType === "stacked" ? "a" : undefined}
+                    radius={barChartType === "stacked" ? 0 : [4, 4, 0, 0]} 
+                  />
+                )}
+                {visibleRegions.Sukaresmi && (
+                  <Bar 
+                    dataKey="Sukaresmi" 
+                    name="Kec. Sukaresmi" 
+                    fill="url(#colorSukaresmi)" 
+                    stackId={barChartType === "stacked" ? "a" : undefined}
+                    radius={barChartType === "stacked" ? 0 : [4, 4, 0, 0]} 
+                  />
+                )}
+                {visibleRegions.Jatisari && (
+                  <Bar 
+                    dataKey="Jatisari" 
+                    name="Kec. Jatisari" 
+                    fill="url(#colorJatisari)" 
+                    stackId={barChartType === "stacked" ? "a" : undefined}
+                    radius={barChartType === "stacked" ? 0 : [4, 4, 0, 0]} 
+                  />
+                )}
+                {visibleRegions.Mekarsari && (
+                  <Bar 
+                    dataKey="Mekarsari" 
+                    name="Kec. Mekarsari" 
+                    fill="url(#colorMekarsari)" 
+                    stackId={barChartType === "stacked" ? "a" : undefined}
+                    radius={barChartType === "stacked" ? [4, 4, 0, 0] : [4, 4, 0, 0]} 
+                  />
+                )}
+              </BarChart>
+            </ResponsiveContainer>
+          )}
         </div>
       </div>
 

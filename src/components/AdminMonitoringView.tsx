@@ -24,6 +24,7 @@ export default function AdminMonitoringView({ submissions }: AdminMonitoringView
   const [selectedAgeGroup, setSelectedAgeGroup] = useState("Semua");
   const [selectedStatusPill, setSelectedStatusPill] = useState("Semua"); // "Aktif" (Approved), "Tertunda" (Pending), "Tidak Aktif" (Rejected), or "Semua"
   const [searchQuery, setSearchQuery] = useState("");
+  const [tableStatusFilter, setTableStatusFilter] = useState("Semua"); // "Semua", "Approved", "Pending", "Rejected"
 
   // Confirmed applied state (so the user clicks "Terapkan Filter" to apply!)
   const [appliedRegion, setAppliedRegion] = useState("Semua");
@@ -46,8 +47,9 @@ export default function AdminMonitoringView({ submissions }: AdminMonitoringView
     { id: "ID-8865", avatar: "👩", name: "Kartika Sari", region: "Kecamatan Mekarsari", age: 35, socialStatus: "Bekerja", verified: "Tertunda", rawStatus: "Pending", notes: "Menunggu pembuktian surat rawat medis" },
     { id: "ID-4190", avatar: "👨", name: "Agus Setiawan", region: "Kecamatan Sukamaju", age: 50, socialStatus: "Lainnya", verified: "Tertunda", rawStatus: "Pending", notes: "Berkas surat pernyataan terlampir" },
     { id: "ID-8302", avatar: "👩", name: "Ratna Sari", region: "Kecamatan Sukaresmi", age: 22, socialStatus: "Pelajar/Mahasiswa", verified: "Tertunda", rawStatus: "Pending", notes: "Menunggu kartu nikah KUA" },
-    { id: "ID-2253", avatar: "👨", name: "Eko Prasetyo", region: "Kecamatan Jatisari", age: 19, socialStatus: "Pelajar/Mahasiswa", verified: "Tertunda", rawStatus: "Pending", notes: "Sedang diproses verifikasi KIP Kuliah" },
-    { id: "ID-5104", avatar: "👨", name: "Aris Munandar", region: "Kecamatan Mekarsari", age: 67, socialStatus: "Lainnya", verified: "Tertunda", rawStatus: "Pending", notes: "Verifikasi lapangan kondisi fisik lansia" }
+    { id: "ID-2253", avatar: "👨", name: "Eko Prasetyo", region: "Kecamatan Jatisari", age: 19, socialStatus: "Pelajar/Mahasiswa", verified: "Ditolak", rawStatus: "Rejected", notes: "Berkas pendaftaran tidak sesuai dengan verifikasi dokumen kependudukan Catil" },
+    { id: "ID-5104", avatar: "👨", name: "Aris Munandar", region: "Kecamatan Mekarsari", age: 67, socialStatus: "Lainnya", verified: "Tertunda", rawStatus: "Pending", notes: "Verifikasi lapangan kondisi fisik lansia" },
+    { id: "ID-7912", avatar: "👩", name: "Aisyah Putri", region: "Kecamatan Mekarsari", age: 29, socialStatus: "Bekerja", verified: "Ditolak", rawStatus: "Rejected", notes: "Dokumen pendapatan tidak terlampir secara lengkap" }
   ];
 
   // Dynamically add live elements from submissions state
@@ -80,7 +82,9 @@ export default function AdminMonitoringView({ submissions }: AdminMonitoringView
 
   const filteredCitizens = allCitizens.filter(citizen => {
     const matchesSearch = citizen.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          citizen.id.toLowerCase().includes(searchQuery.toLowerCase());
+                          citizen.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          citizen.region.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          (citizen.notes && citizen.notes.toLowerCase().includes(searchQuery.toLowerCase()));
     
     const matchesRegion = appliedRegion === "Semua" || citizen.region === appliedRegion;
     
@@ -94,7 +98,12 @@ export default function AdminMonitoringView({ submissions }: AdminMonitoringView
     else if (appliedStatusPill === "Tertunda") matchesStatus = citizen.rawStatus === "Pending";
     else if (appliedStatusPill === "Tidak Aktif") matchesStatus = citizen.rawStatus === "Rejected";
 
-    return matchesSearch && matchesRegion && matchesAge && matchesStatus;
+    let matchesTableStatus = true;
+    if (tableStatusFilter !== "Semua") {
+      matchesTableStatus = citizen.rawStatus === tableStatusFilter;
+    }
+
+    return matchesSearch && matchesRegion && matchesAge && matchesStatus && matchesTableStatus;
   });
 
   // Calculate stats based on listed entities
@@ -240,13 +249,13 @@ export default function AdminMonitoringView({ submissions }: AdminMonitoringView
             </div>
           </div>
 
-          <div className="w-24 h-24 relative min-w-0 flex-shrink-0">
+          <div className="w-[96px] h-[96px] relative min-w-0 flex-shrink-0">
             {donutData.length === 0 ? (
               <div className="w-full h-full rounded-full border-4 border-gray-100 flex items-center justify-center text-[10px] text-gray-400">N/A</div>
             ) : !isRendered ? (
               <div className="w-full h-full bg-slate-50 animate-pulse rounded-full" />
             ) : (
-              <ResponsiveContainer width="100%" height={96}>
+              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                 <PieChart>
                   <Pie
                     data={donutData}
@@ -384,14 +393,29 @@ export default function AdminMonitoringView({ submissions }: AdminMonitoringView
               </button>
             </div>
 
+            {/* Instant Status Filter Dropdown */}
+            <div className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 px-2.5 py-1.5 rounded-xl">
+              <Filter className="w-3.5 h-3.5 text-gray-400" />
+              <select
+                value={tableStatusFilter}
+                onChange={(e) => setTableStatusFilter(e.target.value)}
+                className="text-xs font-bold text-gray-700 bg-transparent border-none focus:outline-none focus:ring-0 cursor-pointer py-0.5"
+              >
+                <option value="Semua">Semua Status</option>
+                <option value="Approved">Approved ✅</option>
+                <option value="Pending">Pending ⏳</option>
+                <option value="Rejected">Rejected ❌</option>
+              </select>
+            </div>
+
             <div className="relative">
               <Search className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
               <input
                 type="text"
-                placeholder="Cari warga atau NIK..."
+                placeholder="Cari warga, NIK, atau wilayah..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="bg-gray-50 border border-gray-200 text-xs font-medium rounded-xl pl-9 pr-4 py-2 w-full sm:w-48 focus:outline-none focus:ring-2 focus:ring-[#535CE8] focus:bg-white text-gray-700 font-medium"
+                className="bg-gray-50 border border-gray-200 text-xs font-medium rounded-xl pl-9 pr-4 py-2 w-full sm:w-56 focus:outline-none focus:ring-2 focus:ring-[#535CE8] focus:bg-white text-gray-700 font-medium"
               />
             </div>
           </div>
@@ -444,14 +468,24 @@ export default function AdminMonitoringView({ submissions }: AdminMonitoringView
                     </td>
                     <td className="px-5 py-3.5 text-center">
                       <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[9px] font-bold ${
-                        citizen.verified === "Terverifikasi"
-                          ? "bg-emerald-50 text-emerald-600"
-                          : "bg-amber-50 text-amber-600"
+                        citizen.rawStatus === "Approved"
+                          ? "bg-emerald-50 text-emerald-600 border border-emerald-100"
+                          : citizen.rawStatus === "Rejected"
+                          ? "bg-rose-50 text-rose-600 border border-rose-100"
+                          : "bg-amber-50 text-amber-600 border border-amber-100"
                       }`}>
                         <span className={`w-1 h-1 rounded-full ${
-                          citizen.verified === "Terverifikasi" ? "bg-emerald-500" : "bg-amber-500"
+                          citizen.rawStatus === "Approved" 
+                            ? "bg-emerald-500" 
+                            : citizen.rawStatus === "Rejected"
+                            ? "bg-rose-500"
+                            : "bg-amber-500"
                         }`} />
-                        {citizen.verified.toUpperCase()}
+                        {citizen.rawStatus === "Approved" 
+                          ? "TERVERIFIKASI" 
+                          : citizen.rawStatus === "Rejected"
+                          ? "DITOLAK/REVISI"
+                          : "TERTUNDA"}
                       </span>
                     </td>
                     <td className="px-5 py-3.5 text-center">

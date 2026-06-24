@@ -208,11 +208,11 @@ export default function ScrumPerformanceDashboard({
             </p>
           </div>
 
-          <div className="w-full h-64 mt-4 min-w-0">
+          <div className="w-full h-[350px] mt-4 min-w-0 relative">
             {!isRendered ? (
               <div className="w-full h-full bg-slate-50 animate-pulse rounded-xl" />
             ) : (
-              <ResponsiveContainer width="100%" height={256}>
+              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                 <BarChart
                   data={chartData}
                   margin={{ top: 20, right: 30, left: -20, bottom: 5 }}

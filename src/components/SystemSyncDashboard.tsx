@@ -184,11 +184,11 @@ export default function SystemSyncDashboard({
           <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider font-mono mb-3">
             Volume Data Sinkronisasi Harian (Records Synced)
           </h3>
-          <div className="w-full h-56 min-w-0">
+          <div className="w-full h-[350px] min-w-0 relative">
             {!isRendered ? (
               <div className="w-full h-full bg-slate-50 animate-pulse rounded-xl" />
             ) : (
-              <ResponsiveContainer width="100%" height={224}>
+              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                 <BarChart data={localSyncLogs.slice(0, 8).reverse()}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                   <XAxis dataKey="date" stroke="#94a3b8" fontSize={9} fontFamily="JetBrains Mono" />
@@ -207,11 +207,11 @@ export default function SystemSyncDashboard({
           <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider font-mono mb-3">
             Analisis Latensi Konektivitas API (Milidetik)
           </h3>
-          <div className="w-full h-56 min-w-0">
+          <div className="w-full h-[350px] min-w-0 relative">
             {!isRendered ? (
               <div className="w-full h-full bg-slate-50 animate-pulse rounded-xl" />
             ) : (
-              <ResponsiveContainer width="100%" height={224}>
+              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                 <LineChart data={localSyncLogs.slice(0, 8).reverse()}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                   <XAxis dataKey="id" stroke="#94a3b8" fontSize={9} fontFamily="JetBrains Mono" />

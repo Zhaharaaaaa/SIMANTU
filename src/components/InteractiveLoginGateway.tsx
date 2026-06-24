@@ -27,6 +27,26 @@ export default function InteractiveLoginGateway({
   const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  // Forgot Password flow states
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotPasswordStep, setForgotPasswordStep] = useState<1 | 2>(1);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotError, setForgotError] = useState<string | null>(null);
+
+  const handleForgotSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!forgotEmail) {
+      setForgotError("Alamat email tidak boleh kosong.");
+      return;
+    }
+    if (!forgotEmail.includes("@")) {
+      setForgotError("Format email tidak valid.");
+      return;
+    }
+    setForgotError(null);
+    setForgotPasswordStep(2);
+  };
+
   // Auto-select or change credentials when role changed
   useEffect(() => {
     if (selectedRole === "Admin") {
@@ -85,6 +105,139 @@ export default function InteractiveLoginGateway({
       transition: { type: "spring", stiffness: 100, damping: 12 } 
     }
   };
+
+  if (showForgotPassword) {
+    return (
+      <div className="min-h-screen w-full bg-[#FFFFFF] relative flex items-center justify-center p-4 overflow-hidden font-sans" id="forgot-password-screen">
+        {/* Soft Moving Glow Aura behind card */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden z-0" id="forgot-password-auras">
+          {/* Royal Blue Aura */}
+          <motion.div
+            animate={{
+              scale: [1, 1.15, 0.9, 1.1, 1],
+              x: [-40, 50, -30, 20, -40],
+              y: [-30, 30, -20, 40, -30]
+            }}
+            transition={{
+              duration: 20,
+              repeat: Infinity,
+              ease: "easeInOut"
+            }}
+            className="absolute top-[20%] left-[20%] w-[450px] h-[450px] bg-[#535CE8]/6 rounded-full blur-[120px] will-change-transform"
+          />
+          {/* Subtle Pink/Purple Aura */}
+          <motion.div
+            animate={{
+              scale: [1, 0.9, 1.15, 0.95, 1],
+              x: [30, -30, 20, -40, 30],
+              y: [40, -20, 30, -30, 40]
+            }}
+            transition={{
+              duration: 24,
+              repeat: Infinity,
+              ease: "easeInOut"
+            }}
+            className="absolute bottom-[20%] right-[20%] w-[500px] h-[500px] bg-[#7c3aed]/5 rounded-full blur-[130px] will-change-transform"
+          />
+        </div>
+
+        {/* Card Centered */}
+        <motion.div
+          initial={{ opacity: 0, y: 30, scale: 0.95 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ type: "spring", stiffness: 80, damping: 15 }}
+          className="relative z-10 w-full max-w-md bg-white border border-gray-100 rounded-3xl p-6 sm:p-8 shadow-[0_25px_60px_rgba(83,92,232,0.08)] flex flex-col justify-between"
+          id="forgot-password-card"
+        >
+          {forgotPasswordStep === 1 ? (
+            <div className="space-y-6">
+              {/* Heading */}
+              <div className="text-center sm:text-left">
+                <span className="text-[10px] font-extrabold uppercase text-[#535CE8] tracking-widest bg-[#F0F1FE] px-3 py-1.5 rounded-full inline-block mb-3">
+                  Pemulihan Akun
+                </span>
+                <h3 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight">Lupa Kata Sandi?</h3>
+                <p className="text-xs text-gray-450 mt-1.5 leading-relaxed font-semibold">
+                  Masukkan alamat email SIMANTU Anda yang terdaftar di bawah ini. Kami akan mengirimkan tautan pemulihan kata sandi yang aman.
+                </p>
+              </div>
+
+              {forgotError && (
+                <div className="bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold px-4 py-3 rounded-xl animate-fadeIn">
+                  {forgotError}
+                </div>
+              )}
+
+              {/* Form Input Email */}
+              <form onSubmit={handleForgotSubmit} className="space-y-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-extrabold text-gray-400 uppercase tracking-widest block">
+                    Alamat Email Terdaftar
+                  </label>
+                  <div className="relative">
+                    <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-gray-400">
+                      <Mail className="w-4 h-4" />
+                    </span>
+                    <input
+                      type="email"
+                      placeholder="operator@simantu.go.id"
+                      value={forgotEmail}
+                      onChange={(e) => setForgotEmail(e.target.value)}
+                      required
+                      className="w-full bg-white border border-gray-200 rounded-xl pl-10 pr-4 py-2.5 text-xs font-semibold text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#535CE8]/20 focus:border-[#535CE8]"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full bg-[#535CE8] hover:bg-[#434AC7] text-white font-extrabold text-xs py-3.5 px-4 rounded-xl shadow-lg shadow-[#535CE8]/20 transition-all flex items-center justify-center gap-2 cursor-pointer hover:-translate-y-0.5 active:translate-y-0"
+                >
+                  <span>Kirim Link Pulihkan</span>
+                </button>
+              </form>
+            </div>
+          ) : (
+            /* Success step 2 */
+            <div className="space-y-6 text-center">
+              <div className="mx-auto w-12 h-12 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center justify-center text-emerald-600 shadow-sm animate-scaleIn">
+                <CheckCircle2 className="w-6 h-6" />
+              </div>
+
+              <div className="space-y-2">
+                <h3 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight">Email Terkirim!</h3>
+                <p className="text-xs text-gray-500 font-medium leading-relaxed px-1 sm:px-3">
+                  Link pemulihan kata sandi telah dikirim ke email Anda:
+                  <br />
+                  <strong className="text-gray-900 font-bold font-mono text-[11px] block mt-1.5 p-1.5 bg-gray-50 rounded-lg">{forgotEmail}</strong>
+                  <br />
+                  Silakan periksa kotak masuk atau spam email Anda.
+                </p>
+              </div>
+
+              <div className="bg-emerald-50/50 border border-emerald-100 p-3.5 rounded-xl text-left text-[11px] text-emerald-800 leading-relaxed font-semibold">
+                ℹ️ <strong>Simulasi Sandbox:</strong> Email pengiriman berhasil disimulasikan. Token reset Anda disimpan sementara untuk sesi lokal ini.
+              </div>
+            </div>
+          )}
+
+          {/* Back button common to both steps */}
+          <div className="mt-6 pt-4 border-t border-gray-100">
+            <button
+              onClick={() => {
+                setShowForgotPassword(false);
+                setForgotPasswordStep(1);
+              }}
+              className="w-full text-center text-xs font-extrabold text-gray-500 hover:text-[#535CE8] active:text-[#434AC7] py-2 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              <LogIn className="w-3.5 h-3.5 rotate-180" />
+              <span>Kembali ke Halaman Login</span>
+            </button>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-[#F8F9FA] font-sans" id="interactive-login-screen">
@@ -441,9 +594,18 @@ export default function InteractiveLoginGateway({
                 <label className="text-[10px] font-extrabold text-gray-400 uppercase tracking-widest block">
                   Kata Sandi
                 </label>
-                <a href="#reset" className="text-[10px] font-bold text-[#535CE8] hover:underline" onClick={(e) => e.preventDefault()}>
+                <button 
+                  type="button"
+                  onClick={() => {
+                    setShowForgotPassword(true);
+                    setForgotPasswordStep(1);
+                    setForgotEmail(email); // prepopulate with whatever they typed in login input
+                    setForgotError(null);
+                  }} 
+                  className="text-[10px] font-bold text-[#535CE8] hover:underline focus:outline-none cursor-pointer"
+                >
                   Lupa Sandi?
-                </a>
+                </button>
               </div>
               <div className="relative">
                 <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-gray-400">
