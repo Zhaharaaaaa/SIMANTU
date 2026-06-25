@@ -74,7 +74,7 @@ export default function AiAssistantWidget({ currentAccount }: AiAssistantWidgetP
       }
 
       const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      const model = genAI.getGenerativeModel({ model: "gemini-3.5-flash" }, { apiVersion: "v1beta" });
 
       // Tambahkan instruksi sistem (System Instruction) agar AI bertindak sebagai Asisten SIMANTU
       const promptSistem = `Anda adalah SIMANTU AI ASSISTANT, asisten pintar untuk sistem administrasi monitoring sosial dan kependudukan. Jawablah pertanyaan admin dengan ramah, profesional, dan ringkas. User saat ini bernama ${currentAccount.name} (${roleLabel}).\n\nPertanyaan user: ${userMsg}`;
