@@ -20,6 +20,7 @@ import OfficerDashboardView from "./components/OfficerDashboardView";
 import OfficerInputView from "./components/OfficerInputView";
 import OfficerStatusView from "./components/OfficerStatusView";
 import AiAssistantWidget from "./components/AiAssistantWidget";
+import { playSound } from "./utils/audio";
 
 // Icons from lucide-react
 import { 
@@ -99,6 +100,40 @@ export default function App() {
     setIsMobileMenuOpen(false);
   }, [selectedAccountId, isAdmin]);
 
+  // Global click listener to automatically trigger pleasant feedback sound on all buttons, tabs & links
+  useEffect(() => {
+    const handleGlobalClick = (e: MouseEvent) => {
+      let target = e.target as HTMLElement | null;
+      while (target && target !== document.body) {
+        const tagName = target.tagName.toLowerCase();
+        const role = target.getAttribute("role");
+        const hasCursorPointer = target.classList.contains("cursor-pointer");
+        const hasButtonClass = target.className && typeof target.className === "string" && (
+          target.className.includes("btn") || 
+          target.className.includes("button")
+        );
+        
+        if (
+          tagName === "button" || 
+          tagName === "a" || 
+          role === "button" || 
+          hasCursorPointer ||
+          hasButtonClass
+        ) {
+          // Play clean mechanical click/tap sound
+          playSound("click");
+          break;
+        }
+        target = target.parentElement;
+      }
+    };
+
+    document.addEventListener("click", handleGlobalClick, { capture: true });
+    return () => {
+      document.removeEventListener("click", handleGlobalClick, { capture: true });
+    };
+  }, []);
+
   // Method 1: Field officer submits new social status changes
   const handleSubmitNewSubmission = (newSub: Omit<Submission, "id" | "officerId" | "officerName" | "region" | "status" | "adminComment">) => {
     const nextIdNum = submissions.length + 1;
@@ -124,6 +159,7 @@ export default function App() {
           : acc
       )
     );
+    playSound("success");
   };
 
   // Method 2: System Admin approves/rejects pending submissions with explanations
@@ -135,6 +171,7 @@ export default function App() {
           : sub
       )
     );
+    playSound(status === "Approved" ? "success" : "tap");
   };
 
   // Method 3: Administrator creates an entirely new user account
@@ -144,6 +181,7 @@ export default function App() {
       totalInputs: 0
     };
     setAccounts([...accounts, fullAccount]);
+    playSound("success");
   };
 
   // Method 3.1: Update existing account
@@ -162,6 +200,7 @@ export default function App() {
     setAccounts(USER_ACCOUNTS);
     setSelectedAccountId("PB05");
     setActiveTab("dashboard");
+    playSound("tap");
   };
 
   if (!isLoggedIn) {
@@ -171,6 +210,7 @@ export default function App() {
         onLoginSuccess={(accountId) => {
           setSelectedAccountId(accountId);
           setIsLoggedIn(true);
+          playSound("success");
         }}
       />
     );
