@@ -74,7 +74,9 @@ export default function AiAssistantWidget({ currentAccount }: AiAssistantWidgetP
         parts: [{ text: msg.text }]
       }));
 
-      const response = await fetch("/api/chat", {
+      const API_BASE_URL = import.meta.env.VITE_API_URL || window.location.origin;
+
+      const response = await fetch(`${API_BASE_URL}/api/chat`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
@@ -86,8 +88,13 @@ export default function AiAssistantWidget({ currentAccount }: AiAssistantWidgetP
       });
 
       if (!response.ok) {
-        const errJson = await response.json();
-        throw new Error(errJson.error || "Gagal menghubungi asisten AI.");
+        const errorText = await response.text();
+        throw new Error(`Server Error: ${response.status} - ${errorText}`);
+      }
+
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        throw new Error("Server tidak mengembalikan respons JSON yang valid!");
       }
 
       const data = await response.json();
