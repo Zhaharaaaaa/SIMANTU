@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { MessageSquare, X, Send, Bot, Sparkles, HelpCircle, AlertCircle, Loader2 } from "lucide-react";
 import { UserAccount } from "../types";
-import { GoogleGenerativeAI } from "@google/generative-ai";
 
 interface Message {
   role: "user" | "model";
@@ -68,19 +67,31 @@ export default function AiAssistantWidget({ currentAccount }: AiAssistantWidgetP
     setMessages(updatedMessages);
 
     try {
-      const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-      if (!apiKey) {
-        throw new Error("API Key Gemini belum terkonfigurasi di Environment Variables!");
+      // Map history to the format expected by the backend
+      const mappedHistory = messages.map(msg => ({
+        role: msg.role === "user" ? "user" : "model",
+        parts: [{ text: msg.text }]
+      }));
+
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          message: userMsg,
+          history: mappedHistory,
+          systemInstruction: `Anda adalah SIMANTU AI ASSISTANT, asisten pintar untuk sistem administrasi monitoring sosial dan kependudukan. Jawablah pertanyaan user dengan ramah, profesional, ringkas, dan jelas dalam bahasa Indonesia. User saat ini bernama ${currentAccount.name} (${roleLabel}).`
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Server Error: ${response.status}`);
       }
 
-      const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({ model: "gemini-3.5-flash" }, { apiVersion: "v1beta" });
-
-      // Tambahkan instruksi sistem (System Instruction) agar AI bertindak sebagai Asisten SIMANTU
-      const promptSistem = `Anda adalah SIMANTU AI ASSISTANT, asisten pintar untuk sistem administrasi monitoring sosial dan kependudukan. Jawablah pertanyaan admin dengan ramah, profesional, dan ringkas. User saat ini bernama ${currentAccount.name} (${roleLabel}).\n\nPertanyaan user: ${userMsg}`;
-
-      const result = await model.generateContent(promptSistem);
-      const responseText = result.response?.text() || "";
+      const data = await response.json();
+      const responseText = data.text || "";
 
       setMessages(prev => [
         ...prev,

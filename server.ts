@@ -34,7 +34,7 @@ function getAiClient(): GoogleGenAI {
 // API Routes FIRST so Vite middleware does not capture them
 app.post("/api/chat", async (req, res) => {
   try {
-    const { message, history } = req.body;
+    const { message, history, systemInstruction } = req.body;
     
     if (!message) {
       res.status(400).json({ error: "Message is required" });
@@ -46,7 +46,12 @@ app.post("/api/chat", async (req, res) => {
     // history format from client-side should match: Array<{ role: 'user' | 'model', parts: Array<{ text: string }> }>
     const formattedHistory = Array.isArray(history) ? history : [];
     
-    const modelsToTry = ["gemini-3.5-flash", "gemini-2.5-flash", "gemini-1.5-flash"];
+    const modelsToTry = [
+      "gemini-3.5-flash",
+      "gemini-2.5-flash",
+      "gemini-1.5-flash-latest",
+      "gemini-1.5-flash"
+    ];
     let responseText = "";
     let lastError: any = null;
 
@@ -60,7 +65,7 @@ app.post("/api/chat", async (req, res) => {
             { role: "user", parts: [{ text: message }] }
           ],
           config: {
-            systemInstruction: "You are SIMANTU AI Assistant, a highly versatile, helpful, and friendly expert helper. While you are integrated into the SIMANTU Business Intelligence Dashboard (Sistem Pemantauan Perubahan Status Sosial), you are fully capable of answering ANY topic, question, or general query the user asks, including general knowledge, technical coding, recipe advice, languages, math, science, and overall assistant tasks. Do not restrict yourself to only SIMANTU platform questions. Always provide highly intelligent, clear, polite, and practical answers in Indonesian (or the language requested by the user) and remain friendly and helpful."
+            systemInstruction: systemInstruction || "You are SIMANTU AI Assistant, a highly versatile, helpful, and friendly expert helper. While you are integrated into the SIMANTU Business Intelligence Dashboard (Sistem Pemantauan Perubahan Status Sosial), you are fully capable of answering ANY topic, question, or general query the user asks, including general knowledge, technical coding, recipe advice, languages, math, science, and overall assistant tasks. Do not restrict yourself to only SIMANTU platform questions. Always provide highly intelligent, clear, polite, and practical answers in Indonesian (or the language requested by the user) and remain friendly and helpful."
           }
         });
         

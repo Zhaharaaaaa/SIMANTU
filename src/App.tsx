@@ -245,7 +245,7 @@ export default function App() {
       {/* ====================================================================
           1. HEADER/NAVBAR MOBILE TERPADU (Hanya muncul di layar HP/Tablet < 1024px)
          ==================================================================== */}
-      <header className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between shadow-sm" id="mobile-navigation-trigger-bar">
+      <header className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-white opacity-100 border-b border-gray-100 px-4 py-3 flex items-center justify-between shadow-sm" id="mobile-navigation-trigger-bar">
         {/* SISI KIRI: Foto Profil (Avatar) + Badge Role, Sejajar Tanpa Logo "SIMANTU" */}
         <div className="flex items-center gap-2 md:gap-3">
           {/* Foto profil lingkaran mini */}
@@ -289,7 +289,7 @@ export default function App() {
         {/* MEKANISME MENU JATUH (Dropdown Navigation) */}
         {isMobileMenuOpen && (
           <div 
-            className="absolute top-full left-0 right-0 bg-white border-b border-gray-200 shadow-xl flex flex-col p-4 gap-1.5 z-40 transition-all duration-200"
+            className="absolute top-full left-0 right-0 bg-white opacity-100 border-b border-gray-200 shadow-xl flex flex-col p-4 gap-1.5 z-40 transition-all duration-200"
             id="mobile-dropdown-navigation"
           >
             {isAdmin ? (
