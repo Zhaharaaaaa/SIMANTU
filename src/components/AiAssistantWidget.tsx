@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
-import { MessageSquare, X, Send, Bot, Sparkles, HelpCircle, AlertCircle, Loader2 } from "lucide-react";
+import { MessageSquare, X, Send, Bot, Sparkles, HelpCircle, AlertCircle, Loader2, Key } from "lucide-react";
 import { UserAccount } from "../types";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 interface Message {
   role: "user" | "model";
@@ -17,6 +18,31 @@ export default function AiAssistantWidget({ currentAccount }: AiAssistantWidgetP
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // Kunci API kustom disimpan di localStorage agar AI tetap bekerja setelah push ke GitHub
+  const [customApiKey, setCustomApiKey] = useState<string>(() => {
+    return localStorage.getItem("simantu_gemini_api_key") || "";
+  });
+  const [isEditingKey, setIsEditingKey] = useState(false);
+  const [newKeyInput, setNewKeyInput] = useState("");
+
+  const resolvedApiKey = import.meta.env.VITE_GEMINI_API_KEY || customApiKey;
+
+  const handleSaveKey = () => {
+    const trimmed = newKeyInput.trim();
+    localStorage.setItem("simantu_gemini_api_key", trimmed);
+    setCustomApiKey(trimmed);
+    setIsEditingKey(false);
+    setErrorMsg(null);
+  };
+
+  const handleClearKey = () => {
+    localStorage.removeItem("simantu_gemini_api_key");
+    setCustomApiKey("");
+    setNewKeyInput("");
+    setIsEditingKey(false);
+    setErrorMsg(null);
+  };
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -67,31 +93,72 @@ export default function AiAssistantWidget({ currentAccount }: AiAssistantWidgetP
     setMessages(updatedMessages);
 
     try {
-      // Map history to the format expected by the backend
-      const mappedHistory = messages.map(msg => ({
-        role: msg.role === "user" ? "user" : "model",
-        parts: [{ text: msg.text }]
-      }));
-
-      const response = await fetch("/api/chat", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          message: userMsg,
-          history: mappedHistory,
-          systemInstruction: `Anda adalah SIMANTU AI ASSISTANT, asisten pintar untuk sistem administrasi monitoring sosial dan kependudukan. Jawablah pertanyaan user dengan ramah, profesional, ringkas, dan jelas dalam bahasa Indonesia. User saat ini bernama ${currentAccount.name} (${roleLabel}).`
-        })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Server Error: ${response.status}`);
+      const apiKey = resolvedApiKey;
+      if (!apiKey) {
+        throw new Error("API Key Gemini belum terkonfigurasi di Environment Variables!");
       }
 
-      const data = await response.json();
-      const responseText = data.text || "";
+      const genAI = new GoogleGenerativeAI(apiKey);
+
+      // Ensure history strictly starts with 'user' and alternates roles
+      const rawHistory = messages.map(msg => ({
+        role: msg.role === "user" ? ("user" as const) : ("model" as const),
+        text: msg.text
+      }));
+
+      const cleanHistory: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }> = [];
+      let expectedRole: 'user' | 'model' = 'user';
+
+      for (const msg of rawHistory) {
+        if (msg.role === expectedRole) {
+          cleanHistory.push({
+            role: msg.role,
+            parts: [{ text: msg.text }]
+          });
+          expectedRole = expectedRole === 'user' ? 'model' : 'user';
+        }
+      }
+
+      // If the last message in cleanHistory is 'user', remove it to avoid consecutive user messages
+      if (cleanHistory.length > 0 && cleanHistory[cleanHistory.length - 1].role === 'user') {
+        cleanHistory.pop();
+      }
+
+      let responseText = "";
+      let lastError: any = null;
+
+      const modelsToTry = [
+        "gemini-1.5-flash-latest",
+        "gemini-1.5-flash",
+        "gemini-2.5-flash",
+        "gemini-3.5-flash"
+      ];
+
+      for (const modelName of modelsToTry) {
+        try {
+          const model = genAI.getGenerativeModel({
+            model: modelName,
+            systemInstruction: `Anda adalah SIMANTU AI ASSISTANT, asisten pintar untuk sistem administrasi monitoring sosial dan kependudukan. Jawablah pertanyaan user dengan ramah, profesional, ringkas, dan jelas dalam bahasa Indonesia. User saat ini bernama ${currentAccount.name} (${roleLabel}).`
+          });
+
+          const chat = model.startChat({
+            history: cleanHistory,
+          });
+
+          const result = await chat.sendMessage(userMsg);
+          responseText = result.response.text();
+          if (responseText) {
+            break; // Success, break out of loop
+          }
+        } catch (err: any) {
+          console.warn(`Gagal dengan model ${modelName}:`, err);
+          lastError = err;
+        }
+      }
+
+      if (!responseText && lastError) {
+        throw lastError;
+      }
 
       setMessages(prev => [
         ...prev,
@@ -184,119 +251,235 @@ export default function AiAssistantWidget({ currentAccount }: AiAssistantWidgetP
                 <p className="text-[10px] text-indigo-100 font-medium">Asisten pintar untuk {roleLabel}</p>
               </div>
             </div>
-            <button 
-              onClick={() => setIsOpen(false)}
-              className="p-2 text-indigo-100 hover:text-white hover:bg-white/10 rounded-xl transition-all cursor-pointer font-bold"
-              title="Tutup Panel"
-            >
-              <X className="w-5 h-5" />
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => {
+                  setNewKeyInput(customApiKey);
+                  setIsEditingKey(!isEditingKey);
+                }}
+                className={`p-2 rounded-xl transition-all cursor-pointer ${
+                  isEditingKey 
+                    ? "bg-white/10 text-white" 
+                    : "text-indigo-100 hover:text-white hover:bg-white/10"
+                }`}
+                title="Pengaturan Kunci API"
+              >
+                <Key className="w-4 h-4" />
+              </button>
+              <button 
+                onClick={() => setIsOpen(false)}
+                className="p-2 text-indigo-100 hover:text-white hover:bg-white/10 rounded-xl transition-all cursor-pointer font-bold"
+                title="Tutup Panel"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
           </div>
 
-          {/* Quick suggesting panel when history has only 1 bot welcome msg */}
-          {messages.length === 1 && (
-            <div className="px-5 py-4 bg-slate-50 border-b border-gray-100">
-              <p className="text-[10px] font-black text-slate-500 mb-2 uppercase tracking-wider flex items-center gap-1">
-                <HelpCircle className="w-3.5 h-3.5 text-[#535CE8]" /> Pertanyaan Populer:
+          {!resolvedApiKey ? (
+            /* Setup/Onboarding API Key View if no API key is detected anywhere */
+            <div className="flex-1 flex flex-col justify-center p-6 bg-slate-50 text-center">
+              <div className="w-14 h-14 bg-amber-50 text-amber-600 border border-amber-200 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm">
+                <Key className="w-6 h-6 animate-bounce" />
+              </div>
+              <h5 className="text-sm font-black text-slate-800 mb-1">Butuh API Key Gemini</h5>
+              <p className="text-xs text-slate-500 leading-relaxed mb-5 max-w-sm mx-auto font-medium">
+                Sistem tidak mendeteksi kunci API di environment variable. Agar fitur AI tetap dapat bekerja saat dideploy di GitHub / Vercel, Anda dapat memasukkan API Key Gemini pribadi Anda secara aman di bawah ini.
               </p>
-              <div className="flex flex-col gap-2">
-                {suggestions.map((s, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => handleSendMessage(s)}
-                    className="text-left text-[11px] font-semibold text-slate-700 bg-white border border-slate-200/80 hover:border-[#535CE8] hover:text-[#535CE8] p-2.5 rounded-xl transition-all cursor-pointer hover:shadow-sm"
-                  >
-                    💡 {s}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Message History Content */}
-          <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-slate-50/50">
-            {messages.map((msg, index) => {
-              const isBot = msg.role === "model";
-              return (
-                <div
-                  key={index}
-                  className={`flex gap-2 max-w-[90%] ${isBot ? "mr-auto" : "ml-auto flex-row-reverse"}`}
-                >
-                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 border ${
-                    isBot ? "bg-[#535CE8]/10 text-[#535CE8] border-[#535CE8]/20" : "bg-white text-slate-600 border-slate-200"
-                  }`}>
-                    {isBot ? <Bot className="w-4 h-4" /> : <div className="text-[10px] font-black">{currentAccount.name.slice(0, 2).toUpperCase()}</div>}
-                  </div>
-                  
-                  <div className={`p-3.5 rounded-2xl text-xs leading-relaxed ${
-                    isBot 
-                      ? "bg-white text-slate-800 border border-slate-200/80 rounded-tl-none whitespace-pre-line shadow-sm"
-                      : "bg-[#535CE8] text-white rounded-tr-none shadow-md shadow-[#535CE8]/15"
-                  }`}>
-                    {renderMessageText(msg.text)}
-                  </div>
-                </div>
-              );
-            })}
-
-            {/* AI is thinking indicator */}
-            {isLoading && (
-              <div className="flex gap-2 max-w-[90%] mr-auto">
-                <div className="w-7 h-7 rounded-lg bg-[#535CE8]/10 text-[#535CE8] border border-[#535CE8]/20 flex items-center justify-center flex-shrink-0 animate-pulse">
-                  <Bot className="w-4 h-4" />
-                </div>
-                <div className="p-3 bg-white border border-slate-200 rounded-2xl rounded-tl-none flex items-center gap-2 text-[11px] font-bold text-slate-500 shadow-sm">
-                  <Loader2 className="w-3.5 h-3.5 text-[#535CE8] animate-spin" />
-                  SIMANTU AI sedang mengetik...
-                </div>
-              </div>
-            )}
-
-            {/* Error Message display block */}
-            {errorMsg && (
-              <div className="p-3.5 bg-rose-50 border border-rose-250/60 rounded-2xl flex flex-col gap-2 text-xs text-rose-800">
-                <div className="flex items-start gap-2.5">
-                  <AlertCircle className="w-4 h-4 mt-0.5 text-rose-600 flex-shrink-0" />
-                  <div>
-                    <h5 className="font-extrabold text-rose-950">Gagal Memuat Jawaban</h5>
-                    <p className="text-[11px] leading-relaxed mt-0.5 font-medium">{errorMsg}</p>
-                  </div>
-                </div>
-                
+              
+              <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm text-left">
+                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">
+                  Gemini API Key Anda
+                </label>
+                <input
+                  type="password"
+                  placeholder="AIzaSy..."
+                  value={newKeyInput}
+                  onChange={(e) => setNewKeyInput(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200/80 rounded-lg px-3 py-2 text-xs font-mono mb-3 focus:outline-none focus:ring-2 focus:ring-[#535CE8] focus:bg-white"
+                />
                 <button
-                  type="button"
-                  onClick={handleRetry}
-                  className="mt-1 self-start bg-rose-600 hover:bg-rose-700 text-white font-black px-3.5 py-1.5 rounded-xl text-[10px] transition-all cursor-pointer shadow-sm shadow-rose-600/15 flex items-center gap-1.5 uppercase tracking-wider"
+                  onClick={handleSaveKey}
+                  disabled={!newKeyInput.trim()}
+                  className="w-full bg-[#535CE8] hover:bg-[#3b2cc4] text-white text-[11px] font-black py-2.5 px-4 rounded-lg shadow-md hover:scale-[1.01] transition-all cursor-pointer disabled:opacity-50 disabled:scale-100 uppercase tracking-wider"
                 >
-                  <Sparkles className="w-3 h-3" /> Coba Kirim Ulang
+                  Simpan & Hubungkan AI
                 </button>
               </div>
-            )}
-            
-            <div ref={messagesEndRef} />
-          </div>
+              <p className="text-[10px] text-slate-400 mt-5 font-medium">
+                Kunci API disimpan dengan aman di penyimpanan browser lokal Anda (localStorage). <br />
+                <a
+                  href="https://aistudio.google.com/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[#535CE8] font-bold hover:underline"
+                >
+                  Dapatkan API Key Gemini Gratis di sini &rarr;
+                </a>
+              </p>
+            </div>
+          ) : isEditingKey ? (
+            /* Editing API Key View */
+            <div className="flex-1 flex flex-col justify-center p-6 bg-slate-50 text-center">
+              <div className="w-14 h-14 bg-indigo-50 text-[#535CE8] border border-indigo-200 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm">
+                <Key className="w-6 h-6 animate-pulse" />
+              </div>
+              <h5 className="text-sm font-black text-slate-800 mb-1">Pengaturan API Key</h5>
+              <p className="text-xs text-slate-500 leading-relaxed mb-5 max-w-sm mx-auto font-medium">
+                {import.meta.env.VITE_GEMINI_API_KEY 
+                  ? "Sistem saat ini menggunakan API Key default dari Environment Variables."
+                  : "Anda menggunakan API Key khusus yang disimpan di browser lokal ini."}
+              </p>
+              
+              <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm text-left">
+                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">
+                  Kunci API Saat Ini
+                </label>
+                <input
+                  type="password"
+                  disabled={!!import.meta.env.VITE_GEMINI_API_KEY}
+                  placeholder={import.meta.env.VITE_GEMINI_API_KEY ? "Dikonfigurasi di Environment" : "Masukkan API Key baru..."}
+                  value={import.meta.env.VITE_GEMINI_API_KEY ? "" : newKeyInput}
+                  onChange={(e) => setNewKeyInput(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200/80 rounded-lg px-3 py-2 text-xs font-mono mb-3 focus:outline-none focus:ring-2 focus:ring-[#535CE8] focus:bg-white disabled:opacity-60"
+                />
+                
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setIsEditingKey(false)}
+                    className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-bold py-2 px-3 rounded-lg transition-all cursor-pointer text-center uppercase tracking-wider"
+                  >
+                    Batal
+                  </button>
+                  {!import.meta.env.VITE_GEMINI_API_KEY && (
+                    <button
+                      onClick={handleSaveKey}
+                      className="flex-1 bg-[#535CE8] hover:bg-[#3b2cc4] text-white text-[10px] font-bold py-2 px-3 rounded-lg shadow-md transition-all cursor-pointer text-center uppercase tracking-wider"
+                    >
+                      Simpan
+                    </button>
+                  )}
+                </div>
+                
+                {!import.meta.env.VITE_GEMINI_API_KEY && customApiKey && (
+                  <button
+                    onClick={handleClearKey}
+                    className="w-full mt-2.5 border border-rose-200 hover:border-rose-300 text-rose-600 hover:bg-rose-50 text-[9px] font-black py-1.5 rounded-lg transition-all cursor-pointer text-center uppercase tracking-wider"
+                  >
+                    Hapus API Key Kustom
+                  </button>
+                )}
+              </div>
+            </div>
+          ) : (
+            /* Normal Chat Flow */
+            <>
+              {/* Quick suggesting panel when history has only 1 bot welcome msg */}
+              {messages.length === 1 && (
+                <div className="px-5 py-4 bg-slate-50 border-b border-gray-100">
+                  <p className="text-[10px] font-black text-slate-500 mb-2 uppercase tracking-wider flex items-center gap-1">
+                    <HelpCircle className="w-3.5 h-3.5 text-[#535CE8]" /> Pertanyaan Populer:
+                  </p>
+                  <div className="flex flex-col gap-2">
+                    {suggestions.map((s, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => handleSendMessage(s)}
+                        className="text-left text-[11px] font-semibold text-slate-700 bg-white border border-slate-200/80 hover:border-[#535CE8] hover:text-[#535CE8] p-2.5 rounded-xl transition-all cursor-pointer hover:shadow-sm"
+                      >
+                        💡 {s}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
-          {/* Footer Input Area */}
-          <form 
-            onSubmit={handleFormSubmit}
-            className="p-4 border-t border-gray-150 bg-white flex gap-2 items-center shadow-[0_-4px_12px_rgba(0,0,0,0.03)]"
-          >
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Tulis pertanyaan Anda di sini..."
-              disabled={isLoading}
-              className="flex-1 bg-slate-50 border border-slate-200/80 rounded-xl px-4 py-3 text-xs font-medium placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#535CE8] focus:bg-white disabled:opacity-50"
-            />
-            <button
-              type="submit"
-              disabled={!input.trim() || isLoading}
-              className="p-3 bg-[#535CE8] text-white rounded-xl hover:bg-[#3b2cc4] disabled:opacity-40 transition-all cursor-pointer flex-shrink-0 flex items-center justify-center shadow-md shadow-[#535CE8]/15"
-            >
-              <Send className="w-4 h-4" />
-            </button>
-          </form>
+              {/* Message History Content */}
+              <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-slate-50/50">
+                {messages.map((msg, index) => {
+                  const isBot = msg.role === "model";
+                  return (
+                    <div
+                      key={index}
+                      className={`flex gap-2 max-w-[90%] ${isBot ? "mr-auto" : "ml-auto flex-row-reverse"}`}
+                    >
+                      <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 border ${
+                        isBot ? "bg-[#535CE8]/10 text-[#535CE8] border-[#535CE8]/20" : "bg-white text-slate-600 border-slate-200"
+                      }`}>
+                        {isBot ? <Bot className="w-4 h-4" /> : <div className="text-[10px] font-black">{currentAccount.name.slice(0, 2).toUpperCase()}</div>}
+                      </div>
+                      
+                      <div className={`p-3.5 rounded-2xl text-xs leading-relaxed ${
+                        isBot 
+                          ? "bg-white text-slate-800 border border-slate-200/80 rounded-tl-none whitespace-pre-line shadow-sm"
+                          : "bg-[#535CE8] text-white rounded-tr-none shadow-md shadow-[#535CE8]/15"
+                      }`}>
+                        {renderMessageText(msg.text)}
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* AI is thinking indicator */}
+                {isLoading && (
+                  <div className="flex gap-2 max-w-[90%] mr-auto">
+                    <div className="w-7 h-7 rounded-lg bg-[#535CE8]/10 text-[#535CE8] border border-[#535CE8]/20 flex items-center justify-center flex-shrink-0 animate-pulse">
+                      <Bot className="w-4 h-4" />
+                    </div>
+                    <div className="p-3 bg-white border border-slate-200 rounded-2xl rounded-tl-none flex items-center gap-2 text-[11px] font-bold text-slate-500 shadow-sm">
+                      <Loader2 className="w-3.5 h-3.5 text-[#535CE8] animate-spin" />
+                      SIMANTU AI sedang mengetik...
+                    </div>
+                  </div>
+                )}
+
+                {/* Error Message display block */}
+                {errorMsg && (
+                  <div className="p-3.5 bg-rose-50 border border-rose-250/60 rounded-2xl flex flex-col gap-2 text-xs text-rose-800">
+                    <div className="flex items-start gap-2.5">
+                      <AlertCircle className="w-4 h-4 mt-0.5 text-rose-600 flex-shrink-0" />
+                      <div>
+                        <h5 className="font-extrabold text-rose-950">Gagal Memuat Jawaban</h5>
+                        <p className="text-[11px] leading-relaxed mt-0.5 font-medium">{errorMsg}</p>
+                      </div>
+                    </div>
+                    
+                    <button
+                      type="button"
+                      onClick={handleRetry}
+                      className="mt-1 self-start bg-rose-600 hover:bg-rose-700 text-white font-black px-3.5 py-1.5 rounded-xl text-[10px] transition-all cursor-pointer shadow-sm shadow-rose-600/15 flex items-center gap-1.5 uppercase tracking-wider"
+                    >
+                      <Sparkles className="w-3 h-3" /> Coba Kirim Ulang
+                    </button>
+                  </div>
+                )}
+                
+                <div ref={messagesEndRef} />
+              </div>
+
+              {/* Footer Input Area */}
+              <form 
+                onSubmit={handleFormSubmit}
+                className="p-4 border-t border-gray-150 bg-white flex gap-2 items-center shadow-[0_-4px_12px_rgba(0,0,0,0.03)]"
+              >
+                <input
+                  type="text"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  placeholder="Tulis pertanyaan Anda di sini..."
+                  disabled={isLoading}
+                  className="flex-1 bg-slate-50 border border-slate-200/80 rounded-xl px-4 py-3 text-xs font-medium placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#535CE8] focus:bg-white disabled:opacity-50"
+                />
+                <button
+                  type="submit"
+                  disabled={!input.trim() || isLoading}
+                  className="p-3 bg-[#535CE8] text-white rounded-xl hover:bg-[#3b2cc4] disabled:opacity-40 transition-all cursor-pointer flex-shrink-0 flex items-center justify-center shadow-md shadow-[#535CE8]/15"
+                >
+                  <Send className="w-4 h-4" />
+                </button>
+              </form>
+            </>
+          )}
         </div>
       )}
     </>
