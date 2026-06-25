@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { MessageSquare, X, Send, Bot, Sparkles, HelpCircle, AlertCircle, Loader2 } from "lucide-react";
 import { UserAccount } from "../types";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 interface Message {
   role: "user" | "model";
@@ -67,45 +68,27 @@ export default function AiAssistantWidget({ currentAccount }: AiAssistantWidgetP
     setMessages(updatedMessages);
 
     try {
-      // Map history to the format expected by the backend
-      // [{ role: 'user' | 'model', parts: [{ text: string }] }]
-      const mappedHistory = messages.map(msg => ({
-        role: msg.role,
-        parts: [{ text: msg.text }]
-      }));
-
-      const API_BASE_URL = import.meta.env.VITE_API_URL || window.location.origin;
-
-      const response = await fetch(`${API_BASE_URL}/api/chat`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          message: userMsg,
-          history: mappedHistory
-        })
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Server Error: ${response.status} - ${errorText}`);
+      const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+      if (!apiKey) {
+        throw new Error("API Key Gemini belum terkonfigurasi di Environment Variables!");
       }
 
-      const contentType = response.headers.get("content-type");
-      if (!contentType || !contentType.includes("application/json")) {
-        throw new Error("Server tidak mengembalikan respons JSON yang valid!");
-      }
+      const genAI = new GoogleGenerativeAI(apiKey);
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-      const data = await response.json();
-      
+      // Tambahkan instruksi sistem (System Instruction) agar AI bertindak sebagai Asisten SIMANTU
+      const promptSistem = `Anda adalah SIMANTU AI ASSISTANT, asisten pintar untuk sistem administrasi monitoring sosial dan kependudukan. Jawablah pertanyaan admin dengan ramah, profesional, dan ringkas. User saat ini bernama ${currentAccount.name} (${roleLabel}).\n\nPertanyaan user: ${userMsg}`;
+
+      const result = await model.generateContent(promptSistem);
+      const responseText = result.response?.text() || "";
+
       setMessages(prev => [
         ...prev,
-        { role: "model", text: data.text || "Mohon maaf, saya mendapatkan respon kosong." }
+        { role: "model", text: responseText || "Mohon maaf, saya mendapatkan respon kosong." }
       ]);
     } catch (err: any) {
-      console.error(err);
-      setErrorMsg(err.message || "Terjadi kesalahan koneksi ke server AI.");
+      console.error("Gagal memuat jawaban AI:", err);
+      setErrorMsg(err.message || "Terjadi kesalahan memuat jawaban dari Gemini AI.");
     } finally {
       setIsLoading(false);
     }
