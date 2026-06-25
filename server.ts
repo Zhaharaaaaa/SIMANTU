@@ -47,17 +47,16 @@ app.post("/api/chat", async (req, res) => {
     const formattedHistory = Array.isArray(history) ? history : [];
     
     const modelsToTry = [
-      "gemini-3.5-flash",
       "gemini-2.5-flash",
-      "gemini-1.5-flash-latest",
-      "gemini-1.5-flash"
+      "gemini-3.1-flash-lite",
+      "gemini-3.5-flash"
     ];
     let responseText = "";
     let lastError: any = null;
 
     for (const modelName of modelsToTry) {
       try {
-        console.log(`Attempting generateContent using model: ${modelName}`);
+        console.info(`Attempting generateContent using model: ${modelName}`);
         const response = await ai.models.generateContent({
           model: modelName,
           contents: [
@@ -74,7 +73,7 @@ app.post("/api/chat", async (req, res) => {
           break; // Success! Exit the loop
         }
       } catch (err: any) {
-        console.warn(`Model ${modelName} encountered an issue, trying next fallback model. Error details:`, err.message || err);
+        console.info(`Model ${modelName} fallback check. Details:`, err.message || err);
         lastError = err;
       }
     }
